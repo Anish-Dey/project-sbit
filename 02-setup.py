@@ -58,7 +58,7 @@ class SetupHelper():
         if(self.initialized):
             print(f"Creating kafka_multiplex_bz table...", end='')
             spark.sql(f"""
-                      CREATE TABLE IF NOT EXISTS {self.catalog}.{self.db_name}.kafka_multiplex(
+                      CREATE TABLE IF NOT EXISTS {self.catalog}.{self.db_name}.kafka_multiplex_bz(
                         key string, 
                         value string, 
                         topic string, 
@@ -100,6 +100,7 @@ class SetupHelper():
                 logout timestamp
             )
             """)
+        print("Done")
         else:
             raise ReferenceError("Application database is not defined. Cannot create table in default database.")
     
@@ -312,7 +313,7 @@ class SetupHelper():
     def cleanup(self):
         if spark.sql(f"SHOW DATABASES IN {self.catalog}").filter(f"databaseName == '{self.db_name}'").count() == 1:
             print(f"Dropping database, {self.catalog}.{self.db_name}...", end=' ')
-            spark.sql("DROP DATABASE IF EXISTS {self.catalog}.{self.db_name} CASCADE")
+            spark.sql(f"DROP DATABASE IF EXISTS {self.catalog}.{self.db_name} CASCADE")
             print("Done")
         print(f"Deleting {self.landing_zone}...", end='')
         dbutils.fs.rm(self.landing_zone, True)
