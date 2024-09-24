@@ -100,7 +100,7 @@ class SetupHelper():
                 logout timestamp
             )
             """)
-        print("Done")
+            print("Done")
         else:
             raise ReferenceError("Application database is not defined. Cannot create table in default database.")
     
