@@ -236,24 +236,19 @@ class SetupHelper():
         if(self.initialized):
             print(f"Creating gym_summary gold view...", end='')
             spark.sql(f"""
-                    CREATE OR REPLACE VIEW  {self.catalog}.{self.db_name}.gym_summary AS
-                    SELECT
-                        to_date(login::timestamp) date
-                    ,   gym
-                    ,   l.mac_address
-                    ,   workout_id
-                    ,   session_id
-                    ,   round((logout::long - login::long)/60, 2) minutes_in_gym
+                    CREATE OR REPLACE VIEW {self.catalog}.{self.db_name}.gym_summary AS
+                    SELECT 
+                        to_date(login::timestamp) date,
+                        gym,
+                        l.mac_address,
+                        workout_id,
+                        session_id,
+                        round((logout::long - login::long)/60,2) minutes_in_gym,
+                        round((end_time::long - start_time::long)/60, 2) minutes_excercising
                     FROM gym_logs l
                     JOIN (
-                        SELECT 
-                            mac_address
-                        ,   workout_id
-                        ,   session_id
-                        ,   start_time
-                        ,   end_time
-                        FROM completed_workouts w
-                        INNER JOIN users u ON  w.user_id = u.user_id
+                        SELECT mac_address, workout_id, session_id, start_time, end_time
+                        FROM completed_workouts w INNER JOIN users u on w.user_id = u.user_id
                     ) w
                     ON l.mac_address = w.mac_address 
                     AND w. start_time BETWEEN l.login AND l.logout
@@ -262,4 +257,70 @@ class SetupHelper():
             print("Done")
         else:
             raise ReferenceError("Application database is not defined. Cannot create table in default database.")
+    
+    def setup(self):
+        import time
+        start = int(time.time())
+        print(f"\nStarting Setup....")
+        self.create_db()
+        self.create_registered_users_bz()
+        self.create_gym_logins_bz() 
+        self.create_kafka_multiplex_bz()        
+        self.create_users()
+        self.create_gym_logs()
+        self.create_user_profile()
+        self.create_heart_rate()
+        self.create_workouts()
+        self.create_completed_workouts()
+        self.create_workout_bpm()
+        self.create_user_bins()
+        self.create_date_lookup()
+        self.create_workout_bpm_summary()  
+        self.create_gym_summary()
+        print(f"Setup completed in {int(time.time()) - start} seconds")
+    
+    def assert_table(self, table_name):
+        assert spark.sql(f"SHOW TABLES IN {self.catalog}.{self.db_name}")\
+                    .filter(f"isTemporary == false and tableName == '{table_name}'") \
+                    .count() == 1, f"The Table {table_name} is missing"
+        print(f"Found {table_name} table in {self.catalog}.{self.db_name}: Success")
+
+    def validate(self):
+        import time
+        start = int(time.time())
+        print(f"\nStarting setup validation ...")
+        assert spark.sql(f"SHOW DATABASES IN {self.catalog}")\
+                    .filter(f"databaseName == '{self.db_name}'")\
+                    .count() == 1, f"The database {self.catalog}.{self.db_name} is missing"
+        print(f"Found database {self.catalog}.{self.db_name}: Success")
+        self.assert_table("registered_users_bz")
+        self.assert_table("gym_logins_bz")
+        self.assert_table("kafka_multiplex_bz")
+        self.assert_table("users")
+        self.assert_table("gym_logs")
+        self.assert_table("user_profile")
+        self.assert_table("heart_rate")
+        self.assert_table("workouts")
+        self.assert_table("completed_workouts")
+        self.assert_table("workout_bpm")
+        self.assert_table("user_bins")
+        self.assert_table("date_lookup")
+        self.assert_table("workout_bpm_summary")
+        self.assert_table("gym_summary")
+        print(f"Setup validation completed in {int(time.time()) - start} seconds")
+    
+    def cleanup(self):
+        if spark.sql(f"SHOW DATABASES IN {self.catalog}").filter(f"databaseName == '{self.db_name}'").count() == 1:
+            print(f"Dropping database, {self.catalog}.{self.db_name}...", end=' ')
+            spark.sql("DROP DATABASE IF EXISTS {self.catalog}.{self.db_name} CASCADE")
+            print("Done")
+        print(f"Deleting {self.landing_zone}...", end='')
+        dbutils.fs.rm(self.landing_zone, True)
+        print("Done")
+        print(f"Deleting {self.checkpoint_base}...", end='')
+        dbutils.fs.rm(self.checkpoint_base, True)
+        print("Done")
+
+
+
 
