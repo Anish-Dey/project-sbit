@@ -9,7 +9,7 @@ class Bronze():
         self.landing_zone = self.Conf.base_dir_data + "/raw"
         self.checkpoint_base = self.Conf.base_dir_checkpoint + "/checkpoints"
         self.catalog = env
-        self.db_name = Conf.db_name
+        self.db_name = self.Conf.db_name
         spark.sql(f"USE {self.catalog}.{self.db_name}")
     
     def consume_user_registration(self, once=True, processing_time="5 seconds"):
